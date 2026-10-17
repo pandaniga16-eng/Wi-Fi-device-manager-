@@ -1,1 +1,385 @@
 
+
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="theme-color" content="#101827">
+
+<title>Wi-Fi Device Manager</title>
+
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Wi-Fi%20Device%20Manager%22%2C%22short_name%22%3A%22Wi-Fi%20Manager%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230b1220%22%2C%22theme_color%22%3A%22%23101827%22%7D">
+
+<style>
+
+*{box-sizing:border-box}
+
+body{margin:0;background:#0b1220;color:#f8fafc;font-family:Arial,sans-serif}
+
+header{padding:24px 18px;background:#101827;border-bottom:1px solid #293449}
+
+header h1{font-size:23px;margin:0 0 8px}
+
+header p,.muted{color:#aab6c8;font-size:13px;line-height:1.5}
+
+main{max-width:650px;margin:auto;padding:16px}
+
+.card{background:#151f30;border:1px solid #2b374b;border-radius:16px;padding:17px;margin-bottom:16px}
+
+h2{font-size:17px;margin:0 0 12px}
+
+input,select,button{width:100%;padding:13px;border-radius:10px;margin:5px 0;font-size:15px}
+
+input,select{background:#0b1220;border:1px solid #3a4961;color:white}
+
+button{border:0;background:#38bdf8;color:#071321;font-weight:bold;cursor:pointer}
+
+.secondary{background:#293449;color:white}
+
+.danger{background:#7f1d1d;color:white}
+
+.device{border-bottom:1px solid #334155;padding:14px 0}
+
+.device:last-child{border-bottom:0}
+
+.device strong{display:block;margin-bottom:6px}
+
+.status{color:#86efac}
+
+.notice{background:#332b16;border:1px solid #74602a;color:#fde68a;border-radius:10px;padding:12px;font-size:13px;line-height:1.5}
+
+footer{text-align:center;color:#aab6c8;font-size:12px;padding:18px}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<h1>📶 Wi-Fi Device Manager</h1>
+
+<p>Review devices and manage your network securely.</p>
+
+</header>
+
+<main>
+
+<section class="card">
+
+<h2>Network status</h2>
+
+<p class="status">● App is running</p>
+
+<p class="muted" id="internet"></p>
+
+<div class="notice">
+
+This app cannot automatically scan your Wi-Fi or disconnect devices.
+
+Real device information and blocking require supported router controls
+
+and permission from the router administrator.
+
+</div>
+
+</section>
+
+<section class="card">
+
+<h2>Connect to router settings</h2>
+
+<p class="muted">
+
+On your iPhone, open Settings → Wi-Fi → tap ⓘ beside the connected
+
+network. Find the Router address and enter it below.
+
+</p>
+
+<input id="router" placeholder="Router IP, e.g. 192.168.1.1"
+
+inputmode="decimal" autocomplete="off">
+
+<button onclick="openRouter()">Open router login</button>
+
+<p class="muted" id="routerMessage"></p>
+
+</section>
+
+<section class="card">
+
+<h2>Device records</h2>
+
+<p class="muted">
+
+Add devices you identify from the router's official connected-device list.
+
+These are saved records, not a live network scan.
+
+</p>
+
+<form id="addForm">
+
+<input id="name" placeholder="Device name" required maxlength="80">
+
+<input id="address" placeholder="IP or MAC address (optional)" maxlength="80">
+
+<select id="status">
+
+<option value="Recognized">Recognized device</option>
+
+<option value="Review">Needs review</option>
+
+</select>
+
+<button type="submit">Add device</button>
+
+</form>
+
+<div id="devices" class="muted" style="margin-top:12px"></div>
+
+</section>
+
+<section class="card">
+
+<h2>Block an unwanted device</h2>
+
+<p class="muted">
+
+Deleting a record below only removes it from this app. To block a real
+
+device, the router administrator must use a supported feature such as
+
+Access Control, Device Management, or a Block List.
+
+</p>
+
+<button class="secondary" onclick="openRouter()">Go to router settings</button>
+
+<p class="muted">
+
+If you only have the Wi-Fi password, ask your dad or the internet provider
+
+for help with administrator access.
+
+</p>
+
+</section>
+
+</main>
+
+<footer>Wi-Fi Device Manager · Personal network tool</footer>
+
+<script>
+
+const KEY = "wifi_manager_devices_v1";
+
+let records = [];
+
+try {
+
+  const saved = JSON.parse(localStorage.getItem(KEY) || "[]");
+
+  records = Array.isArray(saved) ? saved : [];
+
+} catch {
+
+  records = [];
+
+}
+
+document.getElementById("internet").textContent =
+
+  navigator.onLine
+
+    ? "Your phone reports an internet connection."
+
+    : "Your phone reports no internet connection.";
+
+window.addEventListener("online", () => {
+
+  document.getElementById("internet").textContent =
+
+    "Your phone reports an internet connection.";
+
+});
+
+window.addEventListener("offline", () => {
+
+  document.getElementById("internet").textContent =
+
+    "Your phone reports no internet connection.";
+
+});
+
+function openRouter() {
+
+  const field = document.getElementById("router");
+
+  const message = document.getElementById("routerMessage");
+
+  const ip = field.value.trim();
+
+  if (!ip) {
+
+    message.textContent =
+
+      "Enter the router address from your iPhone's Wi-Fi settings.";
+
+    field.focus();
+
+    return;
+
+  }
+
+  const match = ip.match(
+
+    /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/
+
+  );
+
+  if (!match || match.slice(1).some(n => Number(n) > 255)) {
+
+    message.textContent = "Please enter a valid IPv4 address.";
+
+    return;
+
+  }
+
+  const parts = match.slice(1).map(Number);
+
+  const [a, b] = parts;
+
+  const privateIP =
+
+    a === 10 ||
+
+    (a === 172 && b >= 16 && b <= 31) ||
+
+    (a === 192 && b === 168);
+
+  if (!privateIP) {
+
+    message.textContent =
+
+      "Enter the private router address shown in Wi-Fi settings.";
+
+    return;
+
+  }
+
+  message.textContent = "Opening router settings...";
+
+  window.open("http://" + ip + "/", "_blank");
+
+}
+
+function save() {
+
+  try {
+
+    localStorage.setItem(KEY, JSON.stringify(records));
+
+    render();
+
+  } catch {
+
+    alert("Could not save records. Check your browser storage settings.");
+
+  }
+
+}
+
+function render() {
+
+  const list = document.getElementById("devices");
+
+  list.replaceChildren();
+
+  if (!records.length) {
+
+    list.textContent = "No device records yet.";
+
+    return;
+
+  }
+
+  records.forEach((record, index) => {
+
+    const item = document.createElement("div");
+
+    item.className = "device";
+
+    const title = document.createElement("strong");
+
+    title.textContent = record.name;
+
+    const details = document.createElement("p");
+
+    details.className = "muted";
+
+    details.textContent =
+
+      (record.address || "No address recorded") + " · " + record.status;
+
+    const remove = document.createElement("button");
+
+    remove.className = "danger";
+
+    remove.textContent = "Delete record";
+
+    remove.onclick = () => {
+
+      if (confirm("Remove this saved record? This will not block a device.")) {
+
+        records.splice(index, 1);
+
+        save();
+
+      }
+
+    };
+
+    item.append(title, details, remove);
+
+    list.append(item);
+
+  });
+
+}
+
+document.getElementById("addForm").addEventListener("submit", event => {
+
+  event.preventDefault();
+
+  records.push({
+
+    name: document.getElementById("name").value.trim(),
+
+    address: document.getElementById("address").value.trim(),
+
+    status: document.getElementById("status").value
+
+  });
+
+  save();
+
+  event.target.reset();
+
+});
+
+render();
+
+</script>
+
+</body>
+
+</html>
